@@ -222,11 +222,13 @@ The following list of methods also shows 'mode' as the first element
 
 ###############################################################################
 package XAO::DO::Web::Content;
+use strict;
 use Error qw(:try);
 use XAO::Utils;
+use XAO::Objects;
 
 use vars qw($VERSION);
-$VERSION='1.0';
+$VERSION='1.02';
 
 use base XAO::Objects->load(objname => 'Web::FS');
 
@@ -340,7 +342,7 @@ sub content_add ($%) {
         {   name        => 'text',
             style       => 'text',
             required    => 0,
-            maxlength   => 10000,
+            maxlength   => 100000,
             param       => 'TEXT',
             text        => 'Initial Text',
         },
@@ -465,7 +467,23 @@ sub content_data ($%) {
         }
     }
     else {
-        $text=$self->cache->get($self,$args);
+        if($args->{'default.path'} || defined($args->{'default.template'})) {
+            use XAO::Errors qw(XAO::E::DO::FS::List);
+
+            try {
+                $text=$self->cache->get($self,$args);
+            }
+            catch XAO::E::DO::FS::List with {
+                $text=$self->object->expand(
+                    path        => $args->{'default.path'},
+                    template    => $args->{'default.template'},
+                    unparsed    => 1,
+                );
+            };
+        }
+        else {
+            $text=$self->cache->get($self,$args);
+        }
     }
 
     if($args->{parse}) {
@@ -843,8 +861,8 @@ Arguments are:
 
  name           => content name
  comment        => comment for that release
- text           => full text for that release; stripped of whitespace in the
-                   end and in the beginning
+ text           => full text for that release; stripped of whitespace
+                   in the end and in the beginning
  mime_type      => MIME type, default is text/plain
 
 =cut
@@ -893,10 +911,14 @@ sub content_store ($%) {
 
 =back
 
+=head1 INTERNAL METHODS
+
 The following methods are not available through 'mode' argument and
 serve various internal purposes.
 
 =over
+
+=cut
 
 ###############################################################################
 
